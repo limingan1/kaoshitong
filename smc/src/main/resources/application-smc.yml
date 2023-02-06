@@ -1,0 +1,21 @@
+smcIp: 172.16.70.52
+smcVersion: 3.0
+smcSsl: true
+smcPrefix: /conf-portal
+
+logging:
+  level:
+    root: info
+spring:
+  main:
+    allow-bean-definition-overriding: true
+
+
+vdm:
+  smc:
+    address: https://127.0.0.1:443/ws/smcexternal2.asmx
+    version: 2.0
+sdkserver:
+  url: https://127.0.0.1/ws/smcexternal2.asmx
+
+useAdapt: true

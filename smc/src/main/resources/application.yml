@@ -1,0 +1,4 @@
+#此配置文件禁止写配置，请写在application-smc.yml
+spring:
+  profiles:
+    active: smc

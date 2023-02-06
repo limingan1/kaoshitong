@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cascade</title>
+    <script src="../static/js/vue.global.js"></script>
+    <!-- import CSS -->
+    <link rel="stylesheet" href="../static/index.css">
+    <!-- import JavaScript -->
+    <script src="../static/js/element-plus.js"></script>
+    <script src="../static/js/axios.min.js"></script>
+    <script src="../static/i18n/language.js"></script>
+    <script src="../static/common/common.js"></script>
+    <link rel="stylesheet" type="text/css" href="../static/common/common.css" >
+    <style>
+      body{
+        margin: 0;
+      }
+      .el-dropdown-link {
+        cursor: pointer;
+        color: #409EFF;
+        margin-left: 5px;
+        margin-top: 11px;
+      }
+      .el-form-item__label {
+        width: 145px !important;
+      }
+      .el-menu--vertical {
+        border-right-width: 0;
+      }
+      .el-dialog__body {
+        padding-bottom: 50px;
+      }
+    </style>
+</head>
+<body>
+<div id="app">
+  <el-container style="height: calc(100vh);background-color: #f7f7f7">
+    <el-aside width="200px" style="background-color: #545c64">
+      <el-menu
+              active-text-color="#409eff"
+              background-color="#545c64"
+              class="el-menu-vertical-demo"
+              default-active="/virtualNode"
+              text-color="#fff"
+              @select="handleSelect"
+      >
+        <el-sub-menu index="1">
+          <template #title>
+            <el-icon><location /></el-icon>
+            <span>{{i18nText.CascadeConfig}}</span>
+          </template>
+          <el-menu-item index="/config" style="padding-left: 70px">{{i18nText.Navigate}}</el-menu-item>
+          <el-menu-item index="/virtualNode" style="padding-left: 70px">{{i18nText.VirtualNode}}</el-menu-item>
+        </el-sub-menu>
+        <el-menu-item index="/license">
+          <el-icon><location /></el-icon>
+          <span>{{i18nText.License}}</span>
+        </el-menu-item>
+      </el-menu>
+    </el-aside>
+    <el-container>
+      <el-header style="padding-left: 30px;height: 35px;text-align: right">
+        <el-dropdown @command="changeLanguage">
+                    <span class="el-dropdown-link">
+                      {{languageTypeName}}
+                    </span>
+          <template #dropdown >
+            <el-dropdown-menu v-if="languageType == 'zh'">
+              <el-dropdown-item command="en">English</el-dropdown-item>
+            </el-dropdown-menu>
+            <el-dropdown-menu v-if="languageType == 'en'">
+              <el-dropdown-item command="zh">中文</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+        <el-dropdown @command="logout">
+                    <span class="el-dropdown-link">
+                        {{loginUsername}}
+                    </span>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item>{{i18nText.Logout}}</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </el-header>
+      <el-main style="background-color: white;margin: 0 30px 20px 30px">
+        <div style="float: left">
+          <el-button @click="addBtn" type="primary" :disabled="notConfigLocal">
+            <span> + {{i18nText.AddBtn}}</span>
+          </el-button>
+        </div>
+        <el-table
+                :empty-text="i18nText.NoData"
+                :data="tableData"
+                style="width: 100%;margin-top: 25px"
+                :stripe="true"
+                row-key="id"
+                default-expand-all
+                :tree-props="{ children: 'child', hasChildren: 'hasChildren' }">
+          <el-table-column
+                  prop="name"
+                  :label="i18nText.NodeName">
+          </el-table-column>
+          <el-table-column
+                  prop="areaCode"
+                  :label="i18nText.NodePrefix">
+          </el-table-column>
+          <el-table-column
+                  prop="username"
+                  :label="i18nText.SMCUserName">
+          </el-table-column>
+          <el-table-column
+                  prop="createTime"
+                  :label="i18nText.CreateTime" :formatter="transferDate">
+          </el-table-column>
+          <el-table-column
+                  prop="updateTime"
+                  :label="i18nText.UpdateTime" :formatter="transferDate">
+          </el-table-column>
+          <el-table-column
+                  prop="exe"
+                  fixed="right"
+                  :label="i18nText.Operation">
+            <template #default="{row}">
+              <el-button @click="selectOneNode(row)" type="text" size="small" style="padding-left: 0">{{i18nText.UpdateBtn}}</el-button>
+              <el-button @click="deleteConfirm(row)"
+                         type="text" size="small"
+                         :disabled="row.child && row.child.length > 0"
+                         style="padding-left: 0;margin-left: 0">{{i18nText.DeleteBtn}}</el-button>
+            </template>
+          </el-table-column>
+        </el-table>
+        <el-dialog :title="formTitle" v-model="dialogVisible" :close-on-click-modal="false" :close-on-press-escape="false">
+          <el-form :model="form" :rules="rules" :label-position="labelPosition" label-width="128px" ref="configFormRef">
+            <el-form-item
+                    :label="this.i18n('UpperNode', ':')"
+                    prop="parentId">
+              <el-tree-select
+                      style="width: 100%"
+                      v-model="form.parentId"
+                      :data="upperNodeData"
+                      :no-data-text="i18nText.NoData"
+                      check-strictly
+                      :disabled="upperNodeData.length === 0 || this.formType === 'update'"
+                      :placeholder="upperNodeData.length === 0? this.i18n('UpperNodeTips'): this.i18n('EnterUpperNode')"
+                      :render-after-expand="false">
+              </el-tree-select>
+            </el-form-item>
+            <el-form-item :label="this.i18n('Organize', ':')" prop="orgId">
+              <el-select v-model="form.orgId" :placeholder="this.i18n('OrganizationTips')" style="width: 100%" :empty-text="i18nText.NoData" filterable>
+                <el-option
+                        v-for="item in organizations"
+                        :key="item.value"
+                        :label="item.label"
+                        :value="item.value"></el-option>
+              </el-select>
+            </el-form-item>
+            <el-form-item :label="this.i18n('NodeName', ':')" prop="name">
+              <el-input v-model="form.name" maxlength="16"></el-input>
+            </el-form-item>
+            </el-form-item>
+            <el-form-item :label="this.i18n('NodePrefix', ':')" prop="areaCode">
+              <el-input v-model="form.areaCode" maxlength="16"></el-input>
+            </el-form-item>
+            <el-form-item :label="i18nText.Username" prop="username">
+              <el-input v-model="form.username"></el-input>
+            </el-form-item>
+            <el-form-item :label="i18nText.Password" prop="password">
+              <el-input v-model="form.password" type="password"></el-input>
+            </el-form-item>
+            <el-form-item :label="this.i18n('PermissionSwitch', ':')" v-if="this.validPermissionSwitch()">
+              <el-radio-group v-model="form.permissionSwitch">
+                <el-radio :label="1">{{i18nText.Open}}</el-radio>
+                <el-radio :label="0">{{i18nText.Close}}</el-radio>
+              </el-radio-group>
+            </el-form-item>
+          </el-form>
+          <div slot="footer" class="dialog-footer" style="float: right">
+            <el-button @click="dialogVisible = false">{{i18nText.CancelBtn}}</el-button>
+            <el-button type="primary" @click="test('configFormRef')">{{i18nText.TestBtn}}</el-button>
+            <el-button type="primary" @click="addSubmit('configFormRef')">{{i18nText.ConfirmBtn}}</el-button>
+          </div>
+        </el-dialog>
+      </el-main>
+    </el-container>
+  </el-container>
+</div>
+</body>
+<script lang="ts" th:inline="javascript">
+  let baseApi = window.location.protocol + '//' + window.location.host;
+  let languageConfig = sessionStorage.getItem("language");
+  let notConfigLocal = [[${notConfigLocal}]];
+  const App = {
+    data() {
+      return {
+        hidePermissionSwitch: false,
+        loginUsername: '',
+        languageTypeName: '',
+        languageType: '',
+        dialogVisible: false,
+        notConfigLocal: false,
+        formTitle: '',
+        labelPosition: "right",
+        rules: {
+          name: [
+            {required: true, message: this.i18n('NodeNameTip'), trigger: 'blur'},
+          ],
+          areaCode: [
+            {required: true, message: this.i18n('NodePrefixTip'), trigger: 'blur'},
+          ],
+          username: [
+            {required: true, message: this.i18n('UsernameTip'), trigger: 'blur'},
+          ],
+          password: [
+            {required: true, message: this.i18n('PasswordTip'), trigger: 'blur'},
+          ],
+          orgId: [
+            {required: true, message: this.i18n('RuleOrganize'), trigger: 'blur'},
+          ],
+          // parentId: [
+          //   {required: false, message: this.i18n('RuleParentIDNull'), trigger: 'blur'},
+          // ],
+        },
+        organizations: [],
+        upperNodeData: [],
+        i18nText: {
+          License: this.i18n('License'),
+          VirtualNode: this.i18n('VirtualNode'),
+          Logout: this.i18n('Logout'),
+          Navigate: this.i18n('Navigate'),
+          CascadeConfig: this.i18n('CascadeConfig'),
+          Operation: this.i18n('Operation'),
+          UpdateBtn: this.i18n('UpdateBtn'),
+          DeleteBtn: this.i18n('DeleteBtn'),
+          AddBtn: this.i18n('AddBtn'),
+          NodeName: this.i18n('NodeName'),
+          NodePrefix: this.i18n('NodePrefix'),
+          SMCUserName: this.i18n('SMCUserName'),
+          UpdateTime: this.i18n('UpdateTime'),
+          CreateTime: this.i18n('CreateTime'),
+          NoData: this.i18n('NoData'),
+          TestBtn: this.i18n('TestBtn'),
+          CancelBtn: this.i18n('CancelBtn'),
+          ConfirmBtn: this.i18n('ConfirmBtn'),
+          Username: this.i18n('Username', ':'),
+          Password: this.i18n('Password', ':'),
+          Open: this.i18n('Open'),
+          Close: this.i18n('Close'),
+        },
+        tableData: [],
+        form: {},
+        recordData: {},
+        isUpperNode: false,
+      };
+    },
+    methods: {
+      i18n(key,char) {
+        if (languageConfig === undefined || languageConfig === null) languageConfig = 'zh';
+        return language[languageConfig][key] + ((char !== undefined) ? char : '');
+      },
+      handleSelect(key){
+        window.location = key
+      },
+      changeLanguage(language){
+        sessionStorage.setItem("language",language)
+        if (language === 'zh') {
+          this.languageType = '中文'
+        }else {
+          this.languageType = 'English'
+        }
+        location.reload();
+      },
+      logout() {
+        commonLogout(baseApi, this.token);
+      },
+      transferDate(row,column,cellValue){
+        let date = new Date(cellValue);
+        let realMinute = date.getMinutes()
+        let realSeconds = date.getSeconds()
+        let minute = realMinute < 10 ? '0' + realMinute : realMinute;
+        let seconds = realMinute < 10 ? '0' + realSeconds : realSeconds;
+        let format = date.getFullYear() + "/" + date.getMonth() + "/" + date.getDate() + " " + date.getHours()+":"+minute+":"+seconds;
+        return format
+      },
+      validPermissionSwitch(){
+        if (this.formType === 'add') {
+          return this.tableData.length > 0 || !this.hidePermissionSwitch;
+        }
+         return !this.hidePermissionSwitch || (this.recordData.parentId !== undefined && this.recordData.parentId !== '')
+      },
+      queryVirtualNode() {
+        const _this = this;
+        let url = baseApi + "/node/vm/list?page=1&limit=100";
+        commonQueryNodeList(url, this, window,(res)=>{
+          const data = res ? [res] : []
+          _this.dealSuccessRes();
+          // this.dealTableData(data);
+          _this.tableData = data;
+          console.log('tableData', this.tableData);
+          this.dealUpperNode(data);
+          this.upperNodeData = data;
+        });
+      },
+      addBtn: function () {
+        if (this.notConfigLocal) {
+          return
+        }
+        this.isUpperNode = false;
+        this.dialogVisible = true;
+        this.recordData = {};
+        this.formType = "add";
+        this.form = {permissionSwitch: 0};
+        this.formTitle = this.i18n('New') + this.i18n('VirtualNode');
+        this.queryOrganizations()
+      },
+      queryOrganizations(){
+        commonQueryOrg(this,baseApi)
+      },
+      test: function (formName){
+        if (this.tableData.length > 0 && this.form.parentId === undefined && !this.isUpperNode) {
+          ElMessage({
+            message: this.i18n('RuleParentIDNull'),
+            type: 'warning',
+          })
+          return;
+        }
+        commonTest(formName, this, baseApi + "/node/vm/check/add", baseApi + "/node/vm/check/update",true);
+      },
+      addSubmit: function (formName){
+        if (this.tableData.length > 0 && this.form.parentId === undefined && !this.isUpperNode) {
+          ElMessage({
+            message: this.i18n('RuleParentIDNull'),
+            type: 'warning',
+          })
+          return;
+        }
+        commonAdd(formName, this, baseApi + "/node/vm", true,this.queryVirtualNode);
+      },
+      selectOneNode(row){
+        this.queryOrganizations();
+        const _this = this;
+        _this.formType = "update";
+        this.formTitle = this.i18n('Update') + this.i18n('VirtualNode');
+        let url = baseApi + "/node/vm/" + row.id;
+        _this.dialogVisible = true
+        axios.get(url,{headers: {token: _this.token}}).then(res=>{
+          if (res.status === 200) {
+            _this.form = res.data;
+            _this.form.password = "******";
+            _this.recordData = res.data;
+            _this.dealSuccessRes();
+            if (_this.form.parentId === undefined || _this.form.parentId === '') {
+              _this.isUpperNode = true;
+            }else{
+              _this.isUpperNode = false;
+            }
+          }
+        }).catch(e=>{
+          let res = e.response
+          if(res){
+            if (res.status === 401) {
+              window.location = "/";
+            }
+          }
+        })
+      },
+      updateSubmit(formData){
+        let param = {...this.recordData, ...formData};
+        param.ssl = 1;
+        let url = baseApi + "/node/vm/" + param.id;
+        commonUpdateSubmit(this, param, url,this.queryVirtualNode);
+      },
+      deleteConfirm(row){
+        let url = baseApi + "/node/vm/" + row.id;
+        commonDelete(this, url,this.queryVirtualNode);
+      },
+      dealSuccessRes(){
+        keepAlive(this, this.token, window,baseApi);
+      },
+      dealTableData(tableData){
+        if (tableData === null || tableData.length === 0) {
+          return;
+        }
+        tableData.forEach(item => {
+          item.children = item.child ? item.child : [];
+          this.dealTableData(item.children);
+        });
+      },
+      dealUpperNode(upperNodeData) {
+        if (upperNodeData === undefined || upperNodeData.length === 0) {
+          return;
+        }
+        upperNodeData.forEach(item => {
+          item.label = item.name;
+          item.value = item.id;
+          item.children = item.child;
+          this.dealUpperNode(item.children);
+        });
+      },
+      queryHidePermissionSwitch(){
+        const _this = this;
+        axios.get("/node/vm/hidePermissionSwitch").then(res=>{
+          if (res.status === 200) {
+            console.log(res.data)
+            _this.hidePermissionSwitch = res.data.hidePermissionSwitch;
+          }
+        }).catch(e=>{
+          let res = e.response
+          if(res){
+            if (res.status === 401) {
+              window.location = "/";
+            }
+          }
+        })
+      }
+    },
+    mounted: function (){
+      this.loginUsername = sessionStorage.getItem("loginUsername")
+      this.languageType = languageConfig === null || languageConfig === undefined ? 'zh' : languageConfig
+      this.languageTypeName = languageConfig === 'en' ? 'English' : '中文'
+      this.token = sessionStorage.getItem("token")
+      this.queryVirtualNode();
+      this.queryHidePermissionSwitch();
+      this.notConfigLocal = notConfigLocal;
+      checkToken(this,window,baseApi);
+    }
+  }
+  const app = Vue.createApp(App);
+  const ElMessage = ElementPlus.ElMessage
+  app.use(ElementPlus);
+  app.mount("#app");
+</script>
+</html>

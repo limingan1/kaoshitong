@@ -1,0 +1,95 @@
+server:
+  port: 5443
+  http-port: 8090
+spring:
+  datasource:
+    url: jdbc:postgresql://127.0.0.1:5543/vdmcas?useUnicode=true&characterEncoding=utf-8
+    username: dea5155c8b4ea6dd322af32175a8c458
+    password: 3a2ed751358719616f2af6e73f7fff0c
+    driver-class-name: org.postgresql.Driver
+    sql_server:
+      single:
+        url: jdbc:jtds:sqlserver://./vdmcas3;namedPipe=true;instance=SQLEXPRESS
+        driver-class-name: net.sourceforge.jtds.jdbc.Driver
+      dual:
+        url: jdbc:sqlserver://localhost:1433;integratedSecurity=true;DatabaseName=vdmcas3
+        driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+  redis:
+    host: 127.0.0.1
+    port: 6379
+    database: 1
+  mvc:
+    static-path-pattern: /static/**
+  main:
+    allow-circular-references: true
+
+#mybatis-plus配置控制台打印完整带参数SQL语句
+mybatis-plus:
+  mapper-locations: classpath:com/suntek/vdm/gw/core/mapper/xml/*.xml
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+      #log-impl: org.apache.ibatis.logging.stdout
+#级联配置
+cas:
+  service:
+    #级联服务对外暴露的端口 非对内 默认相同
+    port: 5443
+    http-port: 8090
+  database:
+    name: vdmcas3
+    db_type: pgsql
+#    db_type: sqlserver
+    dual_computer_enable: false
+  security:
+    file_path: classpath:/core/src/main/resources/security/file
+  user:
+    config:
+     file_path: classpath:/core/src/main/resources/user/config
+  smc:
+    version: 3.0
+    address: 127.0.0.1
+  floating_ip: 127.0.0.1
+logging:
+  level:
+    com:
+      suntek:
+        vdm:
+          gw:
+            core: debug
+            conf: debug
+# 异步线程配置
+# 配置核心线程数
+async:
+  executor:
+    thread:
+      core_pool_size: 5
+      # 配置最大线程数
+      max_pool_size: 5
+      # 配置队列大小
+      queue_capacity: 99999
+      # 配置线程池中的线程的名称前缀
+      name.prefix: async-service-
+
+#系统版本号  线上环境会替换  此处不用改
+version: 1.0
+
+newPwd:
+
+suce:
+  url: /home/vdc/license/base/so/
+
+hasportal: false
+
+entype: 512
+
+license:
+  time:
+
+#是否开启级联配置页面 true or false
+openConfigPage: false
+#是否显示smc级联通道 true or false
+casChannelNotDisplay: true
+#本级配置虚拟节点的情况下是否显示本级组织节点 显示 true ： 不显示 false
+localOrgNodeDisplay: false
+#修改smc级联通道名称 显示true ： 不显示false
+smc_displace_name: true

@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 日志级别以及优先级排序：OFF > FATAL > ERROR > WARN > INFO >DEBUG > TRACE > ALL -->
+<!-- status log4j2内部日志级别 monitorInterval 多久检查配置文件是否有变化，有变化动态加载(以秒为单位)-->
+<configuration status="WARN" monitorInterval="600">
+    <!-- 全局参数 -->
+    <Properties>
+        <!--        <Property name="pattern">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%15.15t] %-40.40c : [%M] %m%n</Property>-->
+        <!--        <Property name="pattern-http">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%15.15t] %-40.40c : %m%n</Property>-->
+        <Property name="logPath">logs</Property>
+
+        <Property name="pattern">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%15.15t] : %m%n</Property>
+        <Property name="pattern-message">%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%15.15t] : %m%n</Property>
+
+        <Property name="displayName">cascade</Property>
+        <Property name="displayName-message">cascade-message</Property>
+
+    </Properties>
+
+    <Appenders>
+        <!--        默认日志打印-->
+        <Console name="console" target="SYSTEM_OUT" follow="true">
+            <PatternLayout pattern="${pattern}"/>
+        </Console>
+
+        <RollingFile name="infoFile" fileName="${logPath}/${displayName}.log"
+                     filePattern="${logPath}/$${date:yyyy-MM-dd}/${displayName}-%d{yyyy-MM-dd}-%i.log.gz">
+            <CustomPatternLayout pattern="${pattern}" sensitive="true">
+                <pattern>${pattern}</pattern>
+                <replace>
+                    <regex>
+                        <![CDATA[
+                           (pwd|chairmanPassword|password|guestPassword)(=|=\[|\":\"|:|：|=')([^ ,;}\]]*)(\]|\"|'|)
+                           ]]>
+                    </regex>
+                    <replacement>$1$2******"</replacement>
+                </replace>
+                <replace>
+                    <regex>
+                        <![CDATA[
+                           ([smc]{0,3})(Token|token)(=|=\[|\":\"|:|：|=')([^ ,;}\]]{5})([^ ,;}\]]*)(\]|\"|'|)
+                           ]]>
+                    </regex>
+                    <replacement>$1uu_id$3$4*****"</replacement>
+                </replace>
+                <replace>
+                    <regex>
+                        <![CDATA[
+                           /home/vdc/([\s\S]*)[^\r\n]
+                           ]]>
+                    </regex>
+                    <replacement>————hide absolute path————</replacement>
+                </replace>
+            </CustomPatternLayout>
+            <Filters>
+                <ThresholdFilter level="DEBUG"/>
+                <!-- 过滤条件有三个值：ACCEPT(接受)，DENY(拒绝)，NEUTRAL(中立) -->
+                <!-- 设置 onMismatch="NEUTRAL" 可以让日志经过后续的过滤器 -->
+                <!--            access    <ThresholdFilter level="WARN" onMatch="DENY" onMismatch="NEUTRAL"/>-->
+                <!-- 过滤条件有三个值：ACCEPT(接受)，DENY(拒绝)，NEUTRAL(中立) -->
+                <!-- 设置 onMismatch="NEUTRAL" 可以让日志经过后续的过滤器 -->
+                <!--<ThresholdFilter level="WARN" onMatch="DENY" onMismatch="NEUTRAL"/>-->
+            </Filters>
+            <Policies>
+                <!-- 归档每天的文件 -->
+                <!--
+                    这个配置需要和 filePattern 结合使用，注意 filePattern 中配置的文件重命名规则。
+                    滚动策略依赖于 filePattern 中配置的最具体的时间单位，根据最具体的时间单位进行滚动。
+
+                    注意：modulate属性是指从启动时间开始算5秒，还是从0秒开始算5秒，运行一下就明白了。
+                    modulate: true(默认值) // 会从启动时间开始算 5秒
+                    modulate: false // 从 0秒开始算
+             -->
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <!-- 按大小划分 -->
+                <SizeBasedTriggeringPolicy size="200MB"/>
+            </Policies>
+            <!-- 限制每天文件个数
+                 设置压缩 level，0-9，其中 0 = none，1 =最佳速度，通过 9 =最佳压缩。仅适用于 ZIP files。
+            -->
+            <DefaultRolloverStrategy compressionLevel="9" min="1" max="1000">
+                <Delete basePath="${logPath}" maxDepth="2">
+                    <IfFileName glob="*/${displayName}-*.log.gz"/>
+                    <!-- 删除180天之前的日志 -->
+                    <IfLastModified age="180d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+        <!--        消息日志打印-->
+        <Console name="console-message" target="SYSTEM_OUT" follow="true">
+            <PatternLayout pattern="${pattern}"/>
+        </Console>
+        <RollingFile name="infoFile-message" fileName="${logPath}/${displayName-message}.log"
+                     filePattern="${logPath}/$${date:yyyy-MM-dd}/${displayName-message}-%d{yyyy-MM-dd}-%i.log.gz">
+            <PatternLayout pattern="${pattern}"/>
+            <Filters>
+                <ThresholdFilter level="DEBUG"/>
+                <!-- 过滤条件有三个值：ACCEPT(接受)，DENY(拒绝)，NEUTRAL(中立) -->
+                <!-- 设置 onMismatch="NEUTRAL" 可以让日志经过后续的过滤器 -->
+                <!--            access    <ThresholdFilter level="WARN" onMatch="DENY" onMismatch="NEUTRAL"/>-->
+                <!-- 过滤条件有三个值：ACCEPT(接受)，DENY(拒绝)，NEUTRAL(中立) -->
+                <!-- 设置 onMismatch="NEUTRAL" 可以让日志经过后续的过滤器 -->
+                <!--<ThresholdFilter level="WARN" onMatch="DENY" onMismatch="NEUTRAL"/>-->
+            </Filters>
+            <Policies>
+                <!-- 归档每天的文件 -->
+                <!--
+                    这个配置需要和 filePattern 结合使用，注意 filePattern 中配置的文件重命名规则。
+                    滚动策略依赖于 filePattern 中配置的最具体的时间单位，根据最具体的时间单位进行滚动。
+
+                    注意：modulate属性是指从启动时间开始算5秒，还是从0秒开始算5秒，运行一下就明白了。
+                    modulate: true(默认值) // 会从启动时间开始算 5秒
+                    modulate: false // 从 0秒开始算
+             -->
+                <TimeBasedTriggeringPolicy interval="1" modulate="true"/>
+                <!-- 按大小划分 -->
+                <SizeBasedTriggeringPolicy size="200MB"/>
+            </Policies>
+            <!-- 限制每天文件个数
+                 设置压缩 level，0-9，其中 0 = none，1 =最佳速度，通过 9 =最佳压缩。仅适用于 ZIP files。
+            -->
+            <DefaultRolloverStrategy compressionLevel="9" max="10">
+                <Delete basePath="${logPath}" maxDepth="2">
+                    <IfFileName glob="*/${displayName-message}-*.log.gz"/>
+                    <!-- 删除180天之前的日志 -->
+                    <IfLastModified age="180d"/>
+                </Delete>
+            </DefaultRolloverStrategy>
+        </RollingFile>
+
+    </Appenders>
+
+    <Loggers>
+        <!--过滤掉spring一些无用的DEBUG信息 -->
+        <Logger name="org.springframework" level="INFO"/>
+        <Root level="DEBUG">
+            <AppenderRef ref="console"/>
+            <AppenderRef ref="infoFile"/>
+        </Root>
+
+        <!--可以指定具体的类的log,输出到某个文件-->
+        <Logger name="com.suntek.vdm.gw.common.util.MessageLogUtil" level="INFO" additivity="false">
+            <AppenderRef ref="console-message"/>
+            <AppenderRef ref="infoFile-message"/>
+        </Logger>
+    </Loggers>
+
+</configuration>

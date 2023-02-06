@@ -1,0 +1,10 @@
+<BackupInst xmlns="http://www.microsoft.com/GroupPolicy/GPOOperations/Manifest">
+  <GPOGuid><![CDATA[{96BB1CBE-E589-4397-B3B8-738257D66897}]]></GPOGuid>
+  <GPODomain><![CDATA[contoso.com]]></GPODomain>
+  <GPODomainGuid><![CDATA[{970dc492-9663-4ce1-ba13-2ce7e1ef72d7}]]></GPODomainGuid>
+  <GPODomainController><![CDATA[SASC-WS08-DC01.sasc.contoso.com]]></GPODomainController>
+  <BackupTime>2016-11-04T10:51:06</BackupTime>
+  <ID>{5c07095d-b201-445e-ab5d-2b95a920fce5}</ID>
+  <Comment>Imported GPO</Comment>
+  <GPODisplayName>CIS member server 2.1</GPODisplayName>
+</BackupInst>

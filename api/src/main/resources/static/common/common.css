@@ -1,0 +1,25 @@
+.left-float {
+    float: left;
+}
+
+.table-style {
+    padding-top: 20px;
+    border: none;
+    color: #666;
+    width: 100%;
+}
+.table-style td {
+    border: 1px solid #e1e1e1;
+    height: 40px;
+    padding-left: 10px;
+}
+.table-style td:nth-child(1) {
+    text-align: right;
+    width: 25%;
+}
+.table-style td:nth-child(2) {
+    width: 42.5%;
+}
+.table-style td:nth-child(3) {
+    width: 42.5%;
+}

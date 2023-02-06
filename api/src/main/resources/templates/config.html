@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cascade</title>
+    <script src="../static/js/vue.global.js"></script>
+    <link rel="stylesheet" href="../static/index.css">
+    <script src="../static/js/element-plus.js"></script>
+    <script src="../static/js/axios.min.js"></script>
+    <script src="../static/i18n/language.js"></script>
+    <script src="../static/common/common.js"></script>
+    <link rel="stylesheet" type="text/css" href="../static/common/common.css" >
+    <style>
+        body{
+            margin: 0;
+        }
+        .el-dialog__body{
+            padding: 20px 60px 50px 15px !important;
+        }
+        .el-dropdown-link {
+            cursor: pointer;
+            color: #409EFF;
+            margin-left: 5px;
+            margin-top: 11px;
+        }
+        .el-form-item__label {
+            width: 145px !important;
+        }
+        .el-menu--vertical {
+            border-right-width: 0;
+        }
+    </style>
+</head>
+<body>
+<div id="app">
+    <el-container style="height: calc(100vh);background-color: #f7f7f7">
+        <el-aside width="200px" style="background-color: #545c64">
+            <el-menu
+                    active-text-color="#409eff"
+                    background-color="#545c64"
+                    class="el-menu-vertical-demo"
+                    default-active="/config"
+                    text-color="#fff"
+                    @select="handleSelect"
+            >
+                <el-sub-menu index="1">
+                    <template #title>
+                        <el-icon><location /></el-icon>
+                        <span>{{i18nText.CascadeConfig}}</span>
+                    </template>
+                    <el-menu-item index="/config" style="padding-left: 70px">{{i18nText.Navigate}}</el-menu-item>
+                    <el-menu-item index="/virtualNode" style="padding-left: 70px">{{i18nText.VirtualNode}}</el-menu-item>
+                </el-sub-menu>
+                <el-menu-item index="/license">
+                    <el-icon><location /></el-icon>
+                    <span>{{i18nText.License}}</span>
+                </el-menu-item>
+            </el-menu>
+        </el-aside>
+        <el-container style="">
+            <el-header style="padding-left: 30px;height: 35px;text-align: right">
+                <el-dropdown @command="changeLanguage">
+                    <span class="el-dropdown-link">
+                      {{languageTypeName}}
+                    </span>
+                    <template #dropdown >
+                        <el-dropdown-menu v-if="languageType == 'zh'">
+                            <el-dropdown-item command="en">English</el-dropdown-item>
+                        </el-dropdown-menu>
+                        <el-dropdown-menu v-if="languageType == 'en'">
+                            <el-dropdown-item command="zh">中文</el-dropdown-item>
+                        </el-dropdown-menu>
+                    </template>
+                </el-dropdown>
+                <el-dropdown @command="logout">
+                    <span class="el-dropdown-link">
+                        {{loginUsername}}
+                    </span>
+                    <template #dropdown>
+                        <el-dropdown-menu>
+                            <el-dropdown-item>{{i18nText.Logout}}</el-dropdown-item>
+                        </el-dropdown-menu>
+                    </template>
+                </el-dropdown>
+            </el-header>
+            <el-main style="background-color: white;margin: 0 30px 20px 30px">
+                <div style="float: left">
+                    <el-button @click="addBtn" type="primary">
+                       <span> + {{i18nText.AddBtn}}</span>
+                    </el-button>
+                </div>
+                <div style="text-align:right;margin-top: 3px;">
+                    {{i18nText.Statistic}}：{{tableData.length}}
+                </div>
+                <el-dialog :title="formTitle" v-model="dialogVisible" :close-on-click-modal="false" :close-on-press-escape="false">
+                    <el-form :model="form" :rules="rules" :label-position="labelPosition" label-width="100px" ref="configFormRef">
+                        <el-form-item :label="i18nText.CascadeType">
+                            <el-radio-group v-model="form.type" prop="type" :disabled="formType == 'update'">
+                                <el-radio :label="1">{{i18nText.Superior}}</el-radio>
+                                <el-radio :label="0">{{i18nText.Local}}</el-radio>
+                                <el-radio :label="-1">{{i18nText.Children}}</el-radio>
+                            </el-radio-group>
+                        </el-form-item>
+                        <el-form-item :label="i18nText.NodeNetwork" v-if="form.type == -1">
+                            <el-radio-group v-model="form.businessType" prop="businessType" :disabled="formType == 'update'">
+                                <el-radio :label="1">VDC</el-radio>
+                                <el-radio :label="2">Welink</el-radio>
+                                <el-radio :label="3">{{i18nText.HuaweiCloud}}</el-radio>
+                            </el-radio-group>
+                        </el-form-item>
+                        <el-form-item :label="this.i18n('NodeName', ':')" prop="name" v-if="form.type == 0 || (form.businessType != 1 && form.type == -1)">
+                            <el-input v-model="form.name" maxlength="16"></el-input>
+                        </el-form-item>
+                        <el-form-item :label="this.i18n('CascadeAddress', ':')" prop="ip" class="is-required" v-if="form.type == 0">
+                            <el-input :value="ip" :disabled="true"></el-input>
+                        </el-form-item>
+                        <el-form-item :label="this.i18n('CascadeAddress', ':')" prop="ip" class="is-required" v-if="(form.type != 0 && form.businessType == 1) || form.type == 1">
+                            <el-input v-model="form.ip"></el-input>
+                        </el-form-item>
+                        <el-form-item :label="i18nText.WelinkAddress" prop="ip" class="is-required" v-if="form.type == -1 && form.businessType == 2">
+                            <el-input v-model="form.ip" :disabled="formType == 'update'"></el-input>
+                        </el-form-item>
+                        <el-form-item :label="i18nText.HuaweiCloudAddress" prop="ip" class="is-required" v-if="form.type == -1 && form.businessType == 3">
+                            <el-input v-model="form.ip" :disabled="formType == 'update'"></el-input>
+                        </el-form-item>
+                        <el-form-item :label="this.i18n('NodePrefix', ':')" prop="areaCode" v-if="form.type == 0 || (form.businessType != 1 && form.type == -1)">
+                            <el-input v-model="form.areaCode" maxlength="16"></el-input>
+                        </el-form-item>
+                        <el-form-item label="VMR ID:" prop="vmrConfId" v-if="form.type == -1 && form.businessType != 1">
+                            <el-input v-model="form.vmrConfId"></el-input>
+                        </el-form-item>
+                        <el-form-item :label="i18nText.Username" prop="username">
+                            <el-input v-model="form.username"></el-input>
+                        </el-form-item>
+                        <el-form-item :label="i18nText.Password" prop="password">
+                            <el-input v-model="form.password" type="password"></el-input>
+                        </el-form-item>
+                        <el-form-item :label="i18nText.PermissionSwitch" v-if="form.type === -1 && form.businessType === 1">
+                            <el-radio-group v-model="form.permissionSwitch">
+                                <el-radio :label="1">{{i18nText.Open}}</el-radio>
+                                <el-radio :label="0">{{i18nText.Close}}</el-radio>
+                            </el-radio-group>
+                        </el-form-item>
+                        <el-form-item label="client_id:" v-if="form.type == -1 && form.businessType == 2">
+                            <el-input v-model="form.clientId"></el-input>
+                        </el-form-item>
+                        <el-form-item label="client_secret:" v-if="form.type == -1 && form.businessType == 2">
+                            <el-input v-model="form.clientSecret"></el-input>
+                        </el-form-item>
+                        <el-form-item :label="this.i18n('Welink_Api_ADD', ':')" v-if="form.type == -1 && form.businessType == 2">
+                            <el-input v-model="form.addressBookUrl"></el-input>
+                        </el-form-item>
+                    </el-form>
+                    <div slot="footer" class="dialog-footer" style="float: right">
+                        <el-button @click="dialogVisible = false">{{i18nText.CancelBtn}}</el-button>
+                        <el-button type="primary" @click="test('configFormRef')">{{i18nText.TestBtn}}</el-button>
+                        <el-button type="primary" @click="addSubmit('configFormRef')">{{i18nText.ConfirmBtn}}</el-button>
+                    </div>
+                </el-dialog>
+                <el-dialog :title="drawFormTitle" v-model="drawerFormVisible" width="35%" :close-on-click-modal="false" :close-on-press-escape="false">
+                    <el-form :model="form" :rules="orgRules" :label-position="labelPosition"  ref="orgConfigFormRef">
+                        <el-form-item :label="this.i18n('OrgOrganize', ':')" prop="orgId">
+                            <el-select v-model="form.orgId" :placeholder="this.i18n('OrganizationTips')" :no-data-text="i18nText.NoData" style="width: 100%" filterable>
+                                <el-option
+                                        v-for="item in organizations"
+                                        :key="item.value"
+                                        :label="item.label"
+                                        :value="item.value"></el-option>
+                            </el-select>
+                        </el-form-item>
+                        <el-form-item :label="this.i18n('OrgNodeName', ':')" prop="name">
+                            <el-input v-model="form.name"></el-input>
+                        </el-form-item>
+                        <el-form-item :label="this.i18n('RemoteOrgUser', ':')" prop="username">
+                            <el-input v-model="form.username"></el-input>
+                        </el-form-item>
+                        <el-form-item :label="i18nText.Password" prop="password">
+                            <el-input v-model="form.password" type="password"></el-input>
+                        </el-form-item>
+                    </el-form>
+                    <div slot="footer" class="dialog-footer" style="float: right">
+                        <el-button @click="drawerFormVisible = false">{{i18nText.CancelBtn}}</el-button>
+                        <el-button type="primary" @click="testOrg('orgConfigFormRef')">{{i18nText.TestBtn}}</el-button>
+                        <el-button type="primary" @click="addOrgUser('orgConfigFormRef')">{{i18nText.ConfirmBtn}}</el-button>
+                    </div>
+                </el-dialog>
+                <el-drawer
+                        :close-on-press-escape="false"
+                        :close-on-click-modal="false"
+                        v-model="drawerVisible"
+                        :title="this.i18n('OrgTitle')"
+                        size="75%"
+                        direction="btt">
+                    <div style="float: left">
+                        <el-button @click="addDrawBtn" type="primary">
+                            <span> + {{i18nText.AddBtn}}</span>
+                        </el-button>
+                    </div>
+                    <el-table
+                            :empty-text="i18nText.NoData"
+                            :data="orgTableData"
+                            style="width: 100%;margin-top: 25px">
+                        <el-table-column
+                                prop="name"
+                                :label="this.i18n('OrgNodeName')">
+                        </el-table-column>
+                        <el-table-column
+                                prop="username"
+                                :label="this.i18n('RemoteOrgUser')">
+                        </el-table-column>
+                        <el-table-column
+                                prop="orgId"
+                                :formatter="getOrganizeName"
+                                :label="this.i18n('OrgOrganize')">
+                        </el-table-column>
+                        <el-table-column
+                                prop="exe"
+                                fixed="right"
+                                :label="i18nText.Operation">
+                            <template #default="{row}">
+                                <el-button @click="selectOneOrgNode(row)" type="text" size="small" style="padding-left: 0;margin-left: 0">{{i18nText.UpdateBtn}}</el-button>
+                                <el-button @click="deleteOrgUser(row)"
+                                           type="text" size="small"
+                                           style="padding-left: 0;margin-left: 0">{{i18nText.DeleteBtn}}</el-button>
+                            </template>
+                        </el-table-column>
+                    </el-table>
+                </el-drawer>
+                <el-table
+                     :empty-text="i18nText.NoData"
+                     :data="tableData"
+                     style="width: 100%;margin-top: 25px">
+                 <el-table-column
+                         prop="name"
+                         :label="i18nText.NodeName">
+                 </el-table-column>
+                 <el-table-column
+                        prop="type"
+                        :label="i18nText.NodeType" :formatter="formatType">
+                 </el-table-column>
+                 <el-table-column
+                         prop="areaCode"
+                         :label="i18nText.NodePrefix">
+                 </el-table-column>
+                 <el-table-column
+                         prop="ip"
+                         :label="i18nText.CascadeAddress">
+                 </el-table-column>
+                 <el-table-column
+                         prop="username"
+                         :label="i18nText.SMCUserName">
+                 </el-table-column>
+                    <el-table-column
+                            prop="createTime"
+                            :label="i18nText.CreateTime" :formatter="transferDate">
+                    </el-table-column>
+                    <el-table-column
+                            prop="updateTime"
+                            :label="i18nText.UpdateTime" :formatter="transferDate">
+                    </el-table-column>
+                 <el-table-column
+                         prop="exe"
+                         fixed="right"
+                         :label="i18nText.Operation">
+                     <template #default="{row}">
+                         <el-button @click="openDrawer(row)"
+                                    :disabled="row.type === 0 || row.businessType !== 1"
+                                    type="text" size="small" style="padding-left: 0">{{i18nText.ConfigOrganize}}</el-button>
+                         <el-button @click="selectOneNode(row)" type="text" size="small" style="padding-left: 0;margin-left: 0">{{i18nText.UpdateBtn}}</el-button>
+                         <el-button @click="deleteConfirm(row)"
+                                    type="text" size="small"
+                                    :disabled="tableData.length > 1 && row.type == 0"
+                                    style="padding-left: 0;margin-left: 0">{{i18nText.DeleteBtn}}</el-button>
+                     </template>
+                 </el-table-column>
+         </el-table>
+            </el-main>
+        </el-container>
+    </el-container>
+</div>
+</body>
+<script lang="ts">
+    let baseApi = window.location.protocol + '//' + window.location.host;
+    let languageConfig = sessionStorage.getItem("language");
+    const App = {
+        data() {
+            return {
+                formType: "add",
+                type: "0",
+                dialogVisible:false,
+                drawerVisible:false,
+                drawerFormVisible:false,
+                labelPosition:"right",
+                token: '',
+                tableData: [],
+                organizations: [],
+                rules: {
+                    name: [
+                        { required: true, message: this.i18n('NodeNameTip'), trigger: 'blur' },
+                    ],
+                    ip: [
+                        { required: false, message: this.i18n('CascadeAddressTip'), trigger: 'blur' },
+                    ],
+                    areaCode: [
+                        { required: true, message: this.i18n('NodePrefixTip'), trigger: 'blur' },
+                    ],
+                    username: [
+                        { required: true, message: this.i18n('UsernameTip'), trigger: 'blur' },
+                    ],
+                    password: [
+                        { required: true, message: this.i18n('PasswordTip'), trigger: 'blur' },
+                    ],
+                },
+                orgRules: {
+                    name: [
+                        { required: true, message: this.i18n('OrgNodeNameTip'), trigger: 'blur' },
+                    ],
+                    orgId: [
+                        { required: true, message: this.i18n('PasswordTip'), trigger: 'blur' },
+                    ],
+                    username: [
+                        { required: true, message: this.i18n('UsernameTip'), trigger: 'blur' },
+                    ],
+                    password: [
+                        { required: true, message: this.i18n('PasswordTip'), trigger: 'blur' },
+                    ],
+                },
+                form:{type: 0,businessType: 1,ssl: 1},
+                recordData: {},
+                userImg: "../static/user.png",
+                ip: "",
+                languageType:'',
+                languageTypeName:'',
+                formTitle:'',
+                drawFormTitle:'',
+                loginUsername:'',
+                i18nText: {
+                    Address: this.i18n('Address'),
+                    Username: this.i18n('Username', ':'),
+                    Password: this.i18n('Password', ':'),
+                    NodeName: this.i18n('NodeName'),
+                    NodeType: this.i18n('NodeType'),
+                    NodePrefix: this.i18n('NodePrefix'),
+                    CascadeAddress: this.i18n('CascadeAddress'),
+                    SMCUserName: this.i18n('SMCUserName'),
+                    UpdateTime: this.i18n('UpdateTime'),
+                    CreateTime: this.i18n('CreateTime'),
+                    Operation: this.i18n('Operation'),
+                    UpdateBtn: this.i18n('UpdateBtn'),
+                    DeleteBtn: this.i18n('DeleteBtn'),
+                    AddBtn: this.i18n('AddBtn'),
+                    TestBtn: this.i18n('TestBtn'),
+                    CancelBtn: this.i18n('CancelBtn'),
+                    ConfirmBtn: this.i18n('ConfirmBtn'),
+                    Navigate: this.i18n('Navigate'),
+                    License: this.i18n('License'),
+                    Statistic: this.i18n('Statistic'),
+                    CascadeType: this.i18n('CascadeType'),
+                    Superior: this.i18n('Superior'),
+                    Local: this.i18n('Local'),
+                    Children: this.i18n('Children'),
+                    Account: this.i18n('Account'),
+                    NodeNetwork: this.i18n('NodeNetwork', ':'),
+                    WelinkAddress: this.i18n('WelinkAddress', ':'),
+                    HuaweiCloudAddress: this.i18n('HuaweiCloudAddress', ':'),
+                    NoData: this.i18n('NoData'),
+                    HuaweiCloud: this.i18n('HuaweiCloud'),
+                    AddFormTitle: this.i18n('AddFormTitle'),
+                    NodeNameTip: this.i18n('NodeNameTip'),
+                    NodePrefixTip: this.i18n('NodePrefixTip'),
+                    CascadeAddressTip: this.i18n('CascadeAddressTip'),
+                    Logout: this.i18n('Logout'),
+                    VirtualNode: this.i18n('VirtualNode'),
+                    CascadeConfig: this.i18n('CascadeConfig'),
+                    PermissionSwitch: this.i18n('PermissionSwitch'),
+                    Open: this.i18n('Open'),
+                    Close: this.i18n('Close'),
+                    ConfigOrganize: this.i18n('Config_Organize'),
+                },
+                recordOrgData:{},
+                orgTableData:[],
+            }
+        },
+        methods: {
+            addBtn: function () {
+                this.dialogVisible = true;
+                this.formType = "add";
+                this.formTitle = this.i18nText.AddFormTitle;
+                this.form = {type: 0,businessType: 1,ssl: 1, permissionSwitch: 0}
+            },
+            formatType(row){
+                if (row.type == "-1") {
+                    return this.i18n('Children')
+                }
+                if (row.type == "0") {
+                    return this.i18n('Local')
+                }
+                if (row.type == "1") {
+                    return this.i18n('Superior')
+                }
+            },
+            getOrganizeName(row){
+                let name = '';
+                this.organizations.forEach(item=>{
+                    if(item.id === row.orgId){
+                        name = item.name
+                    }
+                })
+                return name
+            },
+            transferDate(row,column,cellValue){
+                let date = new Date(cellValue);
+                let realMinute = date.getMinutes()
+                let realSeconds = date.getSeconds()
+                let minute = realMinute < 10 ? '0' + realMinute : realMinute;
+                let seconds = realMinute < 10 ? '0' + realSeconds : realSeconds;
+                let format = date.getFullYear() + "/" + date.getMonth() + "/" + date.getDate() + " " + date.getHours()+":"+minute+":"+seconds;
+                return format
+            },
+            queryNodeList(){
+                const _this = this;
+                let url = baseApi + "/node/list?page=1&limit=100";
+                commonQueryNodeList(url, this, window,(data)=>{
+                    _this.tableData = data ? data.data : [];
+                    _this.dealSuccessRes();
+                });
+            },
+            deleteConfirm(row){
+                if (this.tableData.length > 1 && row.type === 0) {
+                    return;
+                }
+                let url = baseApi + "/node/" + row.id;
+                commonDelete(this, url,this.queryNodeList);
+            },
+            test: function (formName){
+                commonTest(formName, this, baseApi + "/node/check/add/local", baseApi + "/node/check/update/local",false);
+            },
+            addSubmit: function (formName){
+                if (this.form.type != '-1' || this.form.businessType == '1') {
+                    this.form.vmrConfId = null;
+                }
+                commonAdd(formName, this, baseApi + "/node", false,this.queryNodeList);
+            },
+            selectOneNode(row){
+                const _this = this;
+                _this.formType = "update";
+                this.formTitle = this.i18n('UpdateFormTitle');
+                let url = baseApi + "/node/" + row.id;
+                _this.dialogVisible = true
+                axios.get(url,{headers: {token: _this.token,"X-Frame-Options":'DENY'}}).then(res=>{
+                    if (res.status === 200) {
+                        _this.form = res.data;
+                        _this.form.password = "******";
+                        if (_this.form.permissionSwitch === undefined) {
+                            _this.form.permissionSwitch = 0;
+                        }
+                        _this.recordData = res.data;
+                        _this.dealSuccessRes();
+                    }
+                }).catch(e=>{
+                    let res = e.response
+                    if(res){
+                        if (res.status === 401) {
+                            window.location = "/";
+                        }
+                    }
+                })
+            },
+            updateSubmit(formData){
+                let param = {...this.recordData, ...formData};
+                if (formData.type != '-1' || formData.businessType == '1') {
+                    this.form.vmrConfId = null;
+                }
+                param.ssl = 1;
+                let url = baseApi + "/node/" + param.id;
+                commonUpdateSubmit(this, param, url,this.queryNodeList);
+            },
+            logout(){
+                commonLogout(baseApi, this.token);
+            },
+            queryIp(){
+                const _this = this;
+                let url = baseApi + "/node/local/ip";
+                axios.get(url,{headers:{token:_this.token,"X-Frame-Options":'DENY'}}).then(res=>{
+                    if (res.status === 200) {
+                        _this.ip = res.data;
+                        _this.dealSuccessRes();
+                    }
+                }).catch(e=>{
+                    let res = e.response
+                    if(res){
+                        if (res.status === 401) {
+                            window.location = "/";
+                        }
+                    }
+                })
+            },
+            dealSuccessRes(){
+                keepAlive(this, this.token, window,baseApi);
+            },
+            i18n(key,char) {
+                if (languageConfig === undefined || languageConfig === null) languageConfig = 'zh';
+                let result = language[languageConfig][key] + ((char !== undefined) ? char : '');
+                return result === undefined || result === '' ? '未知错误' : result;
+            },
+            changeLanguage(language){
+                sessionStorage.setItem("language",language)
+                if (language === 'zh') {
+                    this.languageType = '中文'
+                }else {
+                    this.languageType = 'English'
+                }
+                location.reload();
+            },
+            handleSelect(key){
+                window.location = key
+            },
+            queryOrgUserList(row){
+                const _this = this;
+                let url = baseApi + "/node/orguser/list/" + row.id;
+                commonQueryNodeList(url, this, window,(data)=>{
+                    _this.orgTableData = data ? data : [];
+                    _this.dealSuccessRes();
+                });
+            },
+            openDrawer(row){
+                this.drawerVisible = true;
+                this.recordData = row;
+                this.queryOrgUserList(row)
+                this.queryOrganizations()
+            },
+            addDrawBtn(){
+                this.formType = 'add';
+                this.drawFormTitle = this.i18n('AddOrgTitle');
+                this.form = {}
+                this.drawerFormVisible = true;
+            },
+            addOrgUser(formName){
+                this.form.nodeId = this.recordData.id
+                const _this = this;
+                commonAdd(formName, this, baseApi + "/node/orguser", true, ()=>{
+                    _this.queryOrgUserList(_this.recordData)
+                    _this.drawerFormVisible = false
+                },this.updateOrgUser);
+            },
+            updateOrgUser(formData){
+                let param = {...this.recordOrgData, ...formData};
+                param.ssl = 1;
+                let url = baseApi + "/node/orguser/" + param.id;
+                const _this = this;
+                commonUpdateSubmit(this, param, url,()=>{
+                    _this.queryOrgUserList(_this.recordData)
+                    _this.drawerFormVisible = false
+                });
+            },
+            deleteOrgUser(row){
+                let url = baseApi + "/node/orguser/" + row.id;
+                const _this = this;
+                commonDelete(this, url,()=>{
+                    this.queryOrgUserList(_this.recordData)
+                });
+            },
+            testOrg(formName){
+                this.form.nodeId = this.recordData.id
+                commonTest(formName, this, baseApi + "/node/orguser/check/add", baseApi + "/node/orguser/check/update",true);
+            },
+            selectOneOrgNode(row){
+                const _this = this;
+                this.drawFormTitle = this.i18n('UpdateOrgTitle');
+                _this.formType = "update";
+                let url = baseApi + "/node/orguser/" + row.id;
+                _this.drawerFormVisible = true
+                axios.get(url,{headers: {token: _this.token,"X-Frame-Options":'DENY'}}).then(res=>{
+                    if (res.status === 200) {
+                        _this.form = res.data;
+                        _this.form.password = "******";
+                        _this.recordOrgData = res.data;
+                        _this.dealSuccessRes();
+                    }
+                }).catch(e=>{
+                    let res = e.response
+                    if(res){
+                        if (res.status === 401) {
+                            window.location = "/";
+                        }
+                    }
+                })
+            },
+            queryOrganizations(){
+                commonQueryOrg(this,baseApi)
+            }
+        },
+        mounted: function () {
+            let token = sessionStorage.getItem("token")
+            this.token = token ? token : '';
+            this.loginUsername = sessionStorage.getItem("loginUsername")
+            this.languageType = languageConfig === null || languageConfig === undefined ? 'zh' : languageConfig
+            this.languageTypeName = languageConfig === 'en' ? 'English' : '中文'
+            this.queryNodeList();
+            this.queryIp();
+            this.dealSuccessRes();
+            checkToken(this,window,baseApi);
+        }
+    };
+    const app = Vue.createApp(App);
+    const ElMessage = ElementPlus.ElMessage
+    app.use(ElementPlus);
+    app.mount("#app");
+</script>
+</html>

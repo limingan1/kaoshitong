@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>License</title>
+    <script src="../static/js/vue.global.js"></script>
+    <link rel="stylesheet" href="../static/index.css">
+    <script src="../static/js/element-plus.js"></script>
+    <script src="../static/js/axios.min.js"></script>
+    <script src="../static/i18n/language.js"></script>
+    <script src="../static/common/common.js"></script>
+    <link rel="stylesheet" type="text/css" href="../static/common/common.css" >
+    <style>
+        body{
+            margin: 0;
+        }
+        .el-dropdown-link {
+            cursor: pointer;
+            color: #409EFF;
+            margin-left: 5px;
+            margin-top: 11px;
+        }
+    </style>
+</head>
+<body>
+  <div id="app">
+    <el-container style="height: calc(100vh);background-color: #f7f7f7">
+      <el-aside width="200px" style="background-color: #545c64">
+          <el-menu
+                  active-text-color="#409eff"
+                  background-color="#545c64"
+                  class="el-menu-vertical-demo"
+                  default-active="/license"
+                  text-color="#fff"
+                  @select="handleSelect"
+          >
+              <el-sub-menu index="1">
+                  <template #title>
+                      <el-icon><location /></el-icon>
+                      <span>{{i18nText.CascadeConfig}}</span>
+                  </template>
+                  <el-menu-item index="/config" style="padding-left: 70px">{{i18nText.Navigate}}</el-menu-item>
+                  <el-menu-item index="/virtualNode" style="padding-left: 70px">{{i18nText.VirtualNode}}</el-menu-item>
+              </el-sub-menu>
+              <el-menu-item index="/license">
+                  <el-icon><location /></el-icon>
+                  <span>{{i18nText.License}}</span>
+              </el-menu-item>
+          </el-menu>
+      </el-aside>
+        <el-container>
+            <el-header style="padding-left: 30px;height: 35px;text-align: right">
+                <el-dropdown @command="changeLanguage">
+                    <span class="el-dropdown-link">
+                      {{languageTypeName}}
+                    </span>
+                    <template #dropdown >
+                        <el-dropdown-menu v-if="languageType == 'zh'">
+                            <el-dropdown-item command="en">English</el-dropdown-item>
+                        </el-dropdown-menu>
+                        <el-dropdown-menu v-if="languageType == 'en'">
+                            <el-dropdown-item command="zh">中文</el-dropdown-item>
+                        </el-dropdown-menu>
+                    </template>
+                </el-dropdown>
+                <el-dropdown @command="logout">
+                    <span class="el-dropdown-link">
+                        {{loginUsername}}
+                    </span>
+                    <template #dropdown>
+                        <el-dropdown-menu>
+                            <el-dropdown-item>{{i18nText.Logout}}</el-dropdown-item>
+                        </el-dropdown-menu>
+                    </template>
+                </el-dropdown>
+            </el-header>
+            <el-main style="background-color: white;margin: 0 30px 20px 30px">
+                <div class="left-float">
+                    <el-upload
+                            class="left-float"
+                            ref="upload"
+                            action="#"
+                            :show-file-list="false"
+                            :before-upload="uploadCheck"
+                            :http-request="uploadChange"
+                            :auto-upload="true"
+                            :limit="1"
+                    >
+                        <template #trigger>
+                            <el-button type="primary"><span>{{i18nText.Import}}</span></el-button>
+                        </template>
+                    </el-upload>
+                    <el-button
+                            style="margin-left: 10px"
+                            :loading="isLoading"
+                            :disabled="resource.state === 2 || isOldVersionLicense || resource.expiredDate === 'TempLicense'"
+                            @click="handleClickConfirmLicenseRevoke"
+                    >{{i18nText.Expired}}</el-button>
+                </div>
+                <table class="table-style" border="1" cellpadding="0" cellspacing="0">
+                    <tr>
+                        <td></td>
+                        <td>{{ i18nText.LicenseControlAmount }}</td>
+                        <td>{{ i18nText.CurrentUsage }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ i18nText.LicenseStatus }}：</td>
+                        <td>
+                            <span>{{ getLicenseStatus() || '--' }}</span>
+                        </td>
+                        <td>--</td>
+                    </tr>
+                    <tr>
+                        <td>{{ i18nText.LicenseDateOfExpiry }}：</td>
+                        <td>
+                            <span>
+                              <span v-if="resource.expiredDate === 'Unlimited'">
+                                  {{ i18nText.Perpetual }}
+                              </span>
+                              <span v-else-if="resource.expiredDate === 'TempLicense'">
+                                  {{ i18nText.Temporary }}
+                              </span>
+                              <span v-else>{{ resource.expiredDate || '--' }}</span>
+                            </span>
+                        </td>
+                        <td>--</td>
+                    </tr>
+                    <tr>
+                        <td>{{ i18nText.RevokeTime }}：</td>
+                        <td colspan="2">{{ resource.rvkTime || '--' }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ i18nText.RevokeTicket }}：</td>
+                        <td colspan="2">{{ resource.rvkTicket || '--' }}</td>
+                    </tr>
+                    <tr>
+                        <td>{{ i18nText.WeLinkSynergy }}：</td>
+                        <td colspan="2">
+                            {{
+                                resource.welink
+                                        ? resource.welink.total == 1
+                                        ? i18nText.YES
+                                        : i18nText.NO
+                                        : '--'
+                            }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            {{ i18nText.MultiCascadeServiceLicense }}：
+                        </td>
+                        <td colspan="2">
+                            {{
+                                resource.cas
+                                        ? resource.cas.total == 1
+                                        ? i18nText.YES
+                                        : i18nText.NO
+                                        : '--'
+                            }}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>License ESN：</td>
+                        <td colspan="2">{{ resource.esn }}</td>
+                    </tr>
+                </table>
+            </el-main>
+        </el-container>
+    </el-container>
+  </div>
+</body>
+<script lang="ts">
+    let baseApi = window.location.protocol + '//' + window.location.host;
+    let languageConfig = sessionStorage.getItem("language");
+    const App = {
+      data() {
+        return {
+            resource: {
+                ugw: { total: 0, used: 0 }, //融合网关通道数
+                custom: { total: 0, used: 0 }, // 自定义上墙
+                elteSwitch: { total: 0, used: 0 }, // eLTE 融合
+                elte: { total: 0, used: 0 }, // eLTE上墙
+                ivs: { total: 0, used: 0 }, // 监控上墙
+                smc: { total: 0, used: 0 }, // 会议上墙
+                dualSystem: { total: 0, used: 0 }, // 是否双机
+                welink: { total: 0, used: 0 }, // welink接口能力开放
+                apiability: { total: 0, used: 0 }, // 接口开放能力
+                cas: { total: 0, used: 0 }, // 多级级联许可
+                esn: '',
+                expiredDate: '',
+                state: 9,
+                details: [],
+                rvkTicket: null,
+                rvkTime: null
+            },
+            isOnlyCascade: false,
+            isOldVersionLicense: false,
+            isLoading: false,
+            loginUsername:'',
+            token:'',
+            languageType:'',
+            languageTypeName:'',
+            i18nText: {
+                License: this.i18n('License'),
+                Navigate: this.i18n('Navigate'),
+                Logout: this.i18n('Logout'),
+                VirtualNode: this.i18n('VirtualNode'),
+                CascadeConfig: this.i18n('CascadeConfig'),
+                Import: this.i18n('Import'),
+                Expired: this.i18n('Expired'),
+                LicenseControlAmount: this.i18n('LicenseControlAmount'),
+                CurrentUsage: this.i18n('CurrentUsage'),
+                LicenseStatus: this.i18n('LicenseStatus'),
+                LicenseDateOfExpiry: this.i18n('LicenseDateOfExpiry'),
+                RevokeTime: this.i18n('RevokeTime'),
+                RevokeTicket: this.i18n('RevokeTicket'),
+                eLTEFusion: this.i18n('eLTEFusion'),
+                YES: this.i18n('YES'),
+                NO: this.i18n('NO'),
+                MeetingOnWall: this.i18n('MeetingOnWall'),
+                MonitorOnWall: this.i18n('MonitorOnWall'),
+                eLTEOnWall: this.i18n('eLTEOnWall'),
+                ConvergedNumber: this.i18n('ConvergedNumber'),
+                WeLinkSynergy: this.i18n('WeLinkSynergy'),
+                MultiCascadeServiceLicense: this.i18n('MultiCascadeServiceLicense'),
+                DualMachine: this.i18n('DualMachine'),
+                InterfaceOpennessCapability: this.i18n('InterfaceOpennessCapability'),
+                LicenseESN: this.i18n('LicenseESN'),
+                Perpetual: this.i18n('Perpetual'),
+                Temporary: this.i18n('Temporary'),
+                CancelBtn: this.i18n('CancelBtn'),
+                ConfirmBtn: this.i18n('ConfirmBtn'),
+            },
+            uploadUrl: baseApi + "/windowsLicense/importLicense"
+        }
+      },
+      methods: {
+          handleSelect(key){
+              window.location = key
+          },
+          i18n(key,char) {
+              if (languageConfig === undefined || languageConfig === null) languageConfig = 'zh';
+              return language[languageConfig][key] + ((char !== undefined) ? char : '');
+          },
+          changeLanguage(language){
+              sessionStorage.setItem("language",language)
+              if (language === 'zh') {
+                  this.languageType = '中文'
+              }else {
+                  this.languageType = 'English'
+              }
+              location.reload();
+          },
+          logout() {
+              commonLogout(baseApi, this.token);
+          },
+          getALLResource(){
+              let url = baseApi + "/windowsLicense/getAllLicense";
+              axios.get(url,{headers:{token:this.token,"X-Frame-Options":'DENY'}}).then(res=>{
+                  if (res.data) {
+                      this.resource = res.data;
+                      // 新版License则取消失效按钮的置灰
+                      if (res.data.ifNew) {
+                          this.isOldVersionLicense = false;
+                      } else {
+                          this.isOldVersionLicense = true;
+                      }
+                      this.resource.ugw = this.resource.ugw
+                          ? this.resource.ugw
+                          : { total: 0, used: 0 };
+
+                      this.resource.custom = this.resource.custom
+                          ? this.resource.custom
+                          : { total: 0, used: 0 };
+
+                      this.resource.smc = this.resource.smc
+                          ? this.resource.smc
+                          : { total: 0, used: 0 };
+
+                      this.resource.ivs = this.resource.ivs
+                          ? this.resource.ivs
+                          : { total: 0, used: 0 };
+
+                      this.resource.elte = this.resource.elte
+                          ? this.resource.elte
+                          : { total: 0, used: 0 };
+
+                      this.resource.elteSwitch = this.resource.elteSwitch
+                          ? this.resource.elteSwitch
+                          : { total: 0, used: 0 };
+
+                      this.resource.welink = this.resource.welink
+                          ? this.resource.welink
+                          : { total: 0, used: 0 };
+
+                      this.resource.dualSystem = this.resource.dualSystem
+                          ? this.resource.dualSystem
+                          : { total: 0, used: 0 };
+
+                      this.resource.apiability = this.resource.apiability
+                          ? this.resource.apiability
+                          : { total: 0, used: 0 };
+                  }
+                  keepAlive(this, this.token, window, baseApi);
+              }).catch(e=>{
+                  let res = e.response
+                  if(res){
+                      if (res.status === 401) {
+                          window.location = "/";
+                      }
+                  }
+              })
+          },
+          handleClickConfirmLicenseRevoke(){
+              if (this.resource.state === 2 || this.isOldVersionLicense || this.resource.expiredDate === 'TempLicense') {
+                  return
+              }
+              const _this = this;
+              _this.$confirm(_this.i18n('ExpireTip'), _this.i18n('Tip'), {
+                  confirmButtonText: _this.i18nText.ConfirmBtn,
+                  cancelButtonText: _this.i18nText.CancelBtn,
+                  type: 'info'
+              }).then(()=>{
+                  let url = baseApi + "/windowsLicense/revokeLicense"
+                  axios.post(url,{},{headers: {token: _this.token,"X-Frame-Options":'DENY'}}).then(res=>{
+                      if (res.status === 200) {
+                          _this.$message({
+                              type: 'success',
+                              message: _this.i18n('ExecSuccess')
+                          });
+                          _this.getALLResource();
+                      }
+                  }).catch(e=>{
+                      dealUnauthorized(e.response, window);
+                  })
+              })
+          },
+          getLicenseStatus(){
+              switch (this.resource.state) {
+                  case -1:
+                      return this.i18n('Inactivated');
+                  case 0:
+                      return this.i18n('Regular');
+                  case 1:
+                      return this.i18n('EsnMismatch');
+                  case 2:
+                      return this.i18n('LicenseExpired');
+                  case 3:
+                      return this.i18n('Regular');
+                  case 4:
+                  case 5:
+                      return this.i18n('GraceState');
+              }
+          },
+          uploadCheck(file) {
+              let suffix = file.name.substring(file.name.lastIndexOf("."));
+              switch (suffix) {
+                  case '.license':
+                  case '.xml':
+                  case '.dat':
+                      return true;
+                  default:
+                      this.$message({
+                          type: 'error',
+                          message: this.i18n('UploadErrTip')
+                      });
+                      return false;
+              }
+          },
+          uploadChange(file){
+              console.log(file.file.name)
+              if (!this.uploadCheck(file.file)) {
+                  return;
+              }
+              const _this = this;
+              let param = new FormData();
+              param.append('file', file.file);
+              console.log('fff',file.file)
+              let url = baseApi + "/windowsLicense/importLicense"
+              axios.post(url,param,{headers:{token:_this.token, 'Content-Type': 'multipart/form-data',"X-Frame-Options":'DENY'}}
+              ).then(res=>{
+                  if (res.status === 200) {
+                      let json = res.data
+                      if (json.code == 0) {
+                          _this.$message({
+                              type: 'success',
+                              message: _this.i18n('ExecSuccess')
+                          });
+                      }else{
+                          _this.$message({
+                              type: 'error',
+                              message: _this.dealLicenseMsG(json.code)
+                          });
+                      }
+                  }
+                  _this.getALLResource();
+              }).catch(e=>{
+                  dealUnauthorized(e.response, window);
+              })
+          },
+          dealLicenseMsG(code) {
+              switch (code) {
+                  // License过期
+                  case 1:
+                      return this.i18n('requestLicenseExpired');
+                  // ESN不匹配
+                  case 4:
+                      return this.i18n('requestLicenseESNInvalid');
+                  // 文件过大,最大大小为1MB
+                  case 10040:
+                      return this.i18n('requestLicenseFileMaxLimit');
+                  // License文件为空
+                  case 10051:
+                      return this.i18n('requestLicenseFileIsEmpty');
+                  // License文件上传失败
+                  case 10053:
+                      return this.i18n('requestLicenseFileUploadFail');
+                  // 文件IO异常
+                  case 10054:
+                      return this.i18n('requestLicenseIOException');
+                  // 文件格式错误,需.license格式, .xml格式, .dat格式
+                  case 10055:
+                      return this.i18n('requestLicenseInvalidFormat');
+                  // 查询License资源失败
+                  case 10056:
+                      return this.i18n('requestLicenseQueryResourceFail');
+                  // License无效
+                  case 10058:
+                      return this.i18n('requestLicenseInvalid');
+                  // License文件过长
+                  case 10064:
+                      return this.i18n('requestLicenseFileMaxLimit');
+                  // 请先解除双机再导入单机License
+                  case 10066:
+                      return this.i18n('requestLicenseNeedRelieveDual');
+                  // 请先解除双机再导入单机License
+                  case 10071:
+                      return this.i18n('requestLicenseValidateFailed');
+                  // 未知错误
+                  default:
+                      return code + this.i18n('requestErrorUnknown');
+              }
+          }
+      },
+      mounted: function (){
+          this.loginUsername = sessionStorage.getItem("loginUsername")
+          this.languageType = languageConfig === null || languageConfig === undefined ? 'zh' : languageConfig
+          this.languageTypeName = languageConfig === 'en' ? 'English' : '中文'
+          this.token = sessionStorage.getItem("token")
+          this.getALLResource();
+          checkToken(this,window,baseApi);
+      }
+    }
+    const app = Vue.createApp(App);
+    const ElMessage = ElementPlus.ElMessage
+    app.use(ElementPlus);
+    app.mount("#app");
+</script>
+</html>
